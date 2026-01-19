@@ -1,0 +1,104 @@
+{
+  "teams": [
+    {
+      "canonical": "Team Spirit",
+      "aliases": ["Spirit", "TS", "TSpirit"]
+    },
+    {
+      "canonical": "OG",
+      "aliases": ["OG Esports"]
+    },
+    {
+      "canonical": "Team Liquid",
+      "aliases": ["Liquid", "TL"]
+    },
+    {
+      "canonical": "Tundra Esports",
+      "aliases": ["Tundra"]
+    },
+    {
+      "canonical": "Gaimin Gladiators",
+      "aliases": ["Gaimin", "GG", "Gladiators"]
+    },
+    {
+      "canonical": "BetBoom Team",
+      "aliases": ["BetBoom", "BB Team"]
+    },
+    {
+      "canonical": "9Pandas",
+      "aliases": ["9P", "Pandas"]
+    },
+    {
+      "canonical": "Team Falcons",
+      "aliases": ["Falcons"]
+    },
+    {
+      "canonical": "Xtreme Gaming",
+      "aliases": ["XG", "Xtreme"]
+    },
+    {
+      "canonical": "Azure Ray",
+      "aliases": ["AR"]
+    },
+    {
+      "canonical": "LGD Gaming",
+      "aliases": ["LGD", "PSG.LGD"]
+    },
+    {
+      "canonical": "Invictus Gaming",
+      "aliases": ["iG", "IG"]
+    },
+    {
+      "canonical": "Team Secret",
+      "aliases": ["Secret"]
+    },
+    {
+      "canonical": "Nigma Galaxy",
+      "aliases": ["Nigma", "NGX"]
+    },
+    {
+      "canonical": "Alliance",
+      "aliases": ["[A]"]
+    },
+    {
+      "canonical": "Evil Geniuses",
+      "aliases": ["EG"]
+    },
+    {
+      "canonical": "Quest Esports",
+      "aliases": ["Quest"]
+    },
+    {
+      "canonical": "Entity",
+      "aliases": ["Entity Gaming"]
+    },
+    {
+      "canonical": "BOOM Esports",
+      "aliases": ["BOOM"]
+    },
+    {
+      "canonical": "Shopify Rebellion",
+      "aliases": ["Shopify", "SR"]
+    },
+    {
+      "canonical": "Talon Esports",
+      "aliases": ["Talon"]
+    },
+    {
+      "canonical": "Blacklist International",
+      "aliases": ["Blacklist", "BLCK"]
+    },
+    {
+      "canonical": "beastcoast",
+      "aliases": ["bc"]
+    },
+    {
+      "canonical": "Heroic",
+      "aliases": ["Heroic Esports"]
+    },
+    {
+      "canonical": "nouns",
+      "aliases": ["nouns esports"]
+    }
+  ]
+}

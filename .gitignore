@@ -1,0 +1,37 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/*.db
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test artifacts
+/coverage/
+*.profraw
+*.profdata
+
+# Secrets (never commit these)
+*.pem
+*.key
+secrets/
