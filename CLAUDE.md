@@ -14,8 +14,10 @@ Rust (tokio async runtime)
 | Purpose | API | Endpoint |
 |---------|-----|----------|
 | Market data | Polymarket Gamma | `/series/10309` (Dota 2 series) |
-| Live match data | STRATZ GraphQL | `api.stratz.com/graphql` |
+| Live match data | OpenDota | `api.opendota.com/api/live` |
 | Historical stats | OpenDota | `api.opendota.com/api` (future) |
+
+> Note: STRATZ has Cloudflare bot protection, so we use OpenDota instead (no auth required).
 
 ### Data Storage
 SQLite (`data/signals.db`)
@@ -50,7 +52,7 @@ esport-signal/
 
 ### Environment Variables
 ```bash
-STRATZ_API_TOKEN=xxx          # Required - get from stratz.com/api
+# All optional - sensible defaults provided
 POLYMARKET_API_URL=https://gamma-api.polymarket.com
 DATABASE_URL=sqlite:data/signals.db
 POLYMARKET_SCAN_INTERVAL=300  # 5 min
@@ -86,18 +88,22 @@ RUST_LOG=esport_signal=info
 - Market types: `moneyline` (match winner), `child_moneyline` (game winner), `kill_handicap`, etc.
 - Fields use camelCase, `outcomes` and `outcomePrices` are JSON strings
 
-### STRATZ API
-- GraphQL endpoint requires Bearer token auth
-- Live matches available via `live { matches { ... } }` query
-- Building state is a bitmask (11 towers, 6 barracks per side)
+### OpenDota Live API
+- `/api/live` returns all live matches (no auth required)
+- Filter by `league_id > 0` for pro matches
+- Includes team names, scores, gold lead, building state
+- Building state is a bitmask (bits 0-10: radiant towers, 11-16: radiant rax, 18-28: dire towers, 29+: dire rax)
+
+### STRATZ API (not used)
+- Has Cloudflare bot protection - blocks programmatic access
+- Would need browser automation to bypass
 
 ---
 
 ## Links & Resources
 - [Polymarket Dota 2](https://polymarket.com/sports/dota-2/games)
-- [STRATZ API](https://stratz.com/api)
-- [STRATZ Live Matches](https://stratz.com/matches/live)
 - [OpenDota API Docs](https://docs.opendota.com/)
+- [OpenDota Live Endpoint](https://api.opendota.com/api/live)
 
 ---
 

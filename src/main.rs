@@ -13,7 +13,7 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::api::{PolymarketClient, StratzClient};
+use crate::api::{LiveDataClient, PolymarketClient};
 use crate::config::Config;
 use crate::db::SignalStore;
 use crate::matching::TeamResolver;
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
 
     // Initialize API clients
     let polymarket_client = PolymarketClient::new(&config.polymarket_api_url);
-    let stratz_client = StratzClient::new(&config.stratz_api_token);
+    let live_data_client = LiveDataClient::new();
     info!("API clients initialized");
 
     // Shared state
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     );
 
     let live_fetcher = LiveFetcherWorker::new(
-        stratz_client,
+        live_data_client,
         Arc::clone(&active_markets),
         Arc::clone(&match_cache),
         Arc::clone(&team_resolver),

@@ -5,13 +5,13 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::time;
 use tracing::{debug, error, info, warn};
 
-use crate::api::StratzClient;
+use crate::api::LiveDataClient;
 use crate::matching::TeamResolver;
 use crate::models::{ActiveMarkets, LiveMatchCache, MatchUpdate};
 
 /// Worker that fetches live match data for active markets
 pub struct LiveFetcherWorker {
-    client: StratzClient,
+    client: LiveDataClient,
     active_markets: Arc<RwLock<ActiveMarkets>>,
     match_cache: Arc<RwLock<LiveMatchCache>>,
     team_resolver: Arc<TeamResolver>,
@@ -22,7 +22,7 @@ pub struct LiveFetcherWorker {
 impl LiveFetcherWorker {
     /// Create a new live fetcher worker
     pub fn new(
-        client: StratzClient,
+        client: LiveDataClient,
         active_markets: Arc<RwLock<ActiveMarkets>>,
         match_cache: Arc<RwLock<LiveMatchCache>>,
         team_resolver: Arc<TeamResolver>,
