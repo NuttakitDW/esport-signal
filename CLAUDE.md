@@ -8,30 +8,26 @@ Build a live Dota 2 data aggregation system that generates betting signals for P
 ## Technical Decisions
 
 ### Language/Runtime
-Rust
+Rust (tokio async runtime)
 
-### API Strategy (Free Tier Start)
-| Purpose | API | Priority |
+### API Strategy
+| Purpose | API | Endpoint |
 |---------|-----|----------|
-| Live match data | STRATZ GraphQL | Primary |
-| Live match backup | Steam Web API | Fallback |
-| Historical stats | OpenDota | Enrichment |
-| Market data | Polymarket Gamma | Required |
-| Schedules | Liquipedia scrapers | Optional |
+| Market data | Polymarket Gamma | `/series/10309` (Dota 2 series) |
+| Live match data | STRATZ GraphQL | `api.stratz.com/graphql` |
+| Historical stats | OpenDota | `api.opendota.com/api` (future) |
 
 ### Data Storage
-SQLite
+SQLite (`data/signals.db`)
 
 ---
 
-## Architecture Guidelines
+## Architecture
 
-### Polling Intervals
-```
-POLYMARKET_SCAN_INTERVAL=300      # 5 min - check for new markets
-LIVE_MATCH_POLL_INTERVAL=5        # 5 sec - during active matches
-HISTORICAL_REFRESH_INTERVAL=3600  # 1 hour - background enrichment
-```
+### Workers (async tokio tasks)
+1. **Market Scanner** - Polls Polymarket every 5 min for active Dota 2 markets
+2. **Live Fetcher** - Polls STRATZ every 5 sec for live match data (only when markets exist)
+3. **Signal Processor** - Generates signals from match updates, logs to SQLite
 
 ### Directory Structure
 ```
@@ -47,8 +43,19 @@ esport-signal/
 │   ├── matching/             # Team name → match ID resolver
 │   └── db/                   # SQLite signal logging
 ├── data/
-│   └── team_aliases.json     # Team name mapping
+│   ├── team_aliases.json     # Team name mapping
+│   └── signals.db            # SQLite database (created on run)
 └── tests/
+```
+
+### Environment Variables
+```bash
+STRATZ_API_TOKEN=xxx          # Required - get from stratz.com/api
+POLYMARKET_API_URL=https://gamma-api.polymarket.com
+DATABASE_URL=sqlite:data/signals.db
+POLYMARKET_SCAN_INTERVAL=300  # 5 min
+LIVE_MATCH_POLL_INTERVAL=5    # 5 sec
+RUST_LOG=esport_signal=info
 ```
 
 ---
@@ -60,7 +67,6 @@ esport-signal/
 - Implement exponential backoff for API failures
 - Log all signals with timestamps for backtesting
 - Use team alias mapping for name resolution
-- Cache historical data to reduce API calls
 
 ### Don't
 - Don't poll APIs for matches without active Polymarket markets
@@ -71,12 +77,24 @@ esport-signal/
 ---
 
 ## Notes & Learnings
-<!-- Add insights as you build -->
+
+### Polymarket API Structure
+- Sports markets are under `/series/{id}` endpoint, not regular `/markets`
+- Dota 2 series ID: `10309`
+- Series endpoint returns events list (without markets)
+- Must fetch `/events/{id}` individually to get markets array
+- Market types: `moneyline` (match winner), `child_moneyline` (game winner), `kill_handicap`, etc.
+- Fields use camelCase, `outcomes` and `outcomePrices` are JSON strings
+
+### STRATZ API
+- GraphQL endpoint requires Bearer token auth
+- Live matches available via `live { matches { ... } }` query
+- Building state is a bitmask (11 towers, 6 barracks per side)
 
 ---
 
 ## Links & Resources
-- [Polymarket Dota 2](https://polymarket.com/sports/dota2/games)
+- [Polymarket Dota 2](https://polymarket.com/sports/dota-2/games)
 - [STRATZ API](https://stratz.com/api)
 - [STRATZ Live Matches](https://stratz.com/matches/live)
 - [OpenDota API Docs](https://docs.opendota.com/)
