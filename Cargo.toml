@@ -34,3 +34,7 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
 urlencoding = "2"
+
+[[bin]]
+name = "fetch_historical"
+path = "src/bin/fetch_historical.rs"
