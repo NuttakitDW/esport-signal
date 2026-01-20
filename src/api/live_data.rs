@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::models::{LiveMatchState, TeamState};
 
@@ -39,7 +39,7 @@ impl LiveDataClient {
     pub async fn fetch_live_matches(&self) -> Result<Vec<LiveMatchState>> {
         let url = "https://api.opendota.com/api/live";
 
-        debug!("Fetching live matches from OpenDota: {}", url);
+        info!("Fetching live matches from OpenDota");
 
         let response = self
             .client
@@ -73,7 +73,7 @@ impl LiveDataClient {
             .map(|m| self.convert_match(m))
             .collect();
 
-        debug!("Found {} live pro matches", pro_matches.len());
+        info!("OpenDota returned {} live pro matches", pro_matches.len());
 
         Ok(pro_matches)
     }
