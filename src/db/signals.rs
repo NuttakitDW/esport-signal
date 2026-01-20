@@ -231,6 +231,7 @@ impl From<SignalRow> for Signal {
 fn parse_signal_type(s: &str) -> SignalType {
     match s {
         "periodic_update" => SignalType::PeriodicUpdate,
+        "first_blood" => SignalType::FirstBlood,
         "kill_spree" => SignalType::KillSpree,
         "tower_kill" => SignalType::TowerKill,
         "barracks_kill" => SignalType::BarracksKill,

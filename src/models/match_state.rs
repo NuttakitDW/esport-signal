@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Live match state from STRATZ API
+/// Live match state from OpenDota API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiveMatchState {
-    /// STRATZ/Valve match ID
+    /// Match ID
     pub match_id: i64,
 
     /// League/tournament name
@@ -15,6 +15,9 @@ pub struct LiveMatchState {
 
     /// Dire team info
     pub dire: TeamState,
+
+    /// Gold lead (radiant - dire, negative = dire leads)
+    pub gold_lead: i64,
 
     /// Current game time in seconds
     pub game_time: i32,
@@ -38,20 +41,11 @@ pub struct TeamState {
     /// Current kill count
     pub kills: i32,
 
-    /// Current net worth (gold)
-    pub net_worth: i64,
-
-    /// Experience lead/deficit
-    pub xp_lead: i32,
-
     /// Towers destroyed (enemy towers)
     pub towers_killed: i32,
 
     /// Barracks destroyed (enemy barracks)
     pub barracks_killed: i32,
-
-    /// Whether team has Aegis
-    pub has_aegis: bool,
 }
 
 impl Default for TeamState {
@@ -60,11 +54,8 @@ impl Default for TeamState {
             name: String::new(),
             team_id: None,
             kills: 0,
-            net_worth: 0,
-            xp_lead: 0,
             towers_killed: 0,
             barracks_killed: 0,
-            has_aegis: false,
         }
     }
 }

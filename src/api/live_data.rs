@@ -92,12 +92,6 @@ impl LiveDataClient {
         let (radiant_towers_killed, dire_towers_killed, radiant_rax_killed, dire_rax_killed) =
             self.parse_building_state(data.building_state);
 
-        // Gold lead -> net worth approximation
-        let radiant_lead = data.radiant_lead.unwrap_or(0);
-        let base_net_worth = 50000; // Approximate base net worth mid-game
-        let radiant_net_worth = base_net_worth + (radiant_lead / 2);
-        let dire_net_worth = base_net_worth - (radiant_lead / 2);
-
         LiveMatchState {
             match_id,
             league_name: None, // OpenDota doesn't include league name in live data
@@ -107,22 +101,17 @@ impl LiveDataClient {
                     .unwrap_or_else(|| "Radiant".to_string()),
                 team_id: data.team_id_radiant,
                 kills: data.radiant_score.unwrap_or(0),
-                net_worth: radiant_net_worth,
-                xp_lead: 0,
                 towers_killed: dire_towers_killed,
                 barracks_killed: dire_rax_killed,
-                has_aegis: false,
             },
             dire: TeamState {
                 name: data.team_name_dire.unwrap_or_else(|| "Dire".to_string()),
                 team_id: data.team_id_dire,
                 kills: data.dire_score.unwrap_or(0),
-                net_worth: dire_net_worth,
-                xp_lead: 0,
                 towers_killed: radiant_towers_killed,
                 barracks_killed: radiant_rax_killed,
-                has_aegis: false,
             },
+            gold_lead: data.radiant_lead.unwrap_or(0),
             game_time: data.game_time.unwrap_or(0),
             is_live: true,
             updated_at: Utc::now(),

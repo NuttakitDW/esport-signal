@@ -142,6 +142,13 @@ impl SignalProcessorWorker {
             return SignalType::TowerKill;
         }
 
+        // Check for first blood (total kills goes from 0 to 1+)
+        let previous_total_kills = previous.radiant.kills + previous.dire.kills;
+        let current_total_kills = current.radiant.kills + current.dire.kills;
+        if previous_total_kills == 0 && current_total_kills > 0 {
+            return SignalType::FirstBlood;
+        }
+
         // Check for kill spree (5+ kills in the update)
         let kill_diff = (current.radiant.kills - previous.radiant.kills)
             + (current.dire.kills - previous.dire.kills);
@@ -149,13 +156,9 @@ impl SignalProcessorWorker {
             return SignalType::KillSpree;
         }
 
-        // Check for large gold swing (5k+ change in net worth difference)
-        let current_nw_diff =
-            current.radiant.net_worth as i64 - current.dire.net_worth as i64;
-        let previous_nw_diff =
-            previous.radiant.net_worth as i64 - previous.dire.net_worth as i64;
-        let nw_swing = (current_nw_diff - previous_nw_diff).abs();
-        if nw_swing >= 5000 {
+        // Check for large gold swing (5k+ change in gold lead)
+        let gold_swing = (current.gold_lead - previous.gold_lead).abs();
+        if gold_swing >= 5000 {
             return SignalType::GoldSwing;
         }
 
@@ -177,8 +180,7 @@ impl SignalProcessorWorker {
         radiant_score += kill_diff as f64 * 0.005;
 
         // Factor 2: Gold advantage (1% per 1000 gold)
-        let gold_diff = state.radiant.net_worth - state.dire.net_worth;
-        radiant_score += (gold_diff as f64 / 1000.0) * 0.01;
+        radiant_score += (state.gold_lead as f64 / 1000.0) * 0.01;
 
         // Factor 3: Tower advantage (3% per tower)
         let tower_diff = state.radiant.towers_killed - state.dire.towers_killed;
@@ -207,7 +209,7 @@ impl SignalProcessorWorker {
 
         // Higher confidence with larger leads
         let kill_diff = (state.radiant.kills - state.dire.kills).abs();
-        let gold_diff = (state.radiant.net_worth - state.dire.net_worth).abs();
+        let gold_diff = state.gold_lead.abs();
 
         if kill_diff >= 10 || gold_diff >= 10000 {
             confidence += 0.15;
@@ -233,6 +235,14 @@ impl SignalProcessorWorker {
 
         match signal_type {
             SignalType::GameStart => format!("Game started: {} at {}%", direction, edge_pct),
+            SignalType::FirstBlood => {
+                let fb_team = if state.radiant.kills > state.dire.kills {
+                    &state.radiant.name
+                } else {
+                    &state.dire.name
+                };
+                format!("First blood: {} - {} at {}%", fb_team, direction, edge_pct)
+            }
             SignalType::KillSpree => format!(
                 "Kill spree detected: {} ({}:{}) - {} at {}%",
                 state.radiant.name,
@@ -254,15 +264,14 @@ impl SignalProcessorWorker {
                 direction, edge_pct
             ),
             SignalType::GoldSwing => {
-                let gold_diff = state.radiant.net_worth - state.dire.net_worth;
                 format!(
                     "Gold swing: {} lead by {}k - {} at {}%",
-                    if gold_diff > 0 {
+                    if state.gold_lead > 0 {
                         &state.radiant.name
                     } else {
                         &state.dire.name
                     },
-                    (gold_diff.abs() as f64 / 1000.0).round(),
+                    (state.gold_lead.abs() as f64 / 1000.0).round(),
                     direction,
                     edge_pct
                 )

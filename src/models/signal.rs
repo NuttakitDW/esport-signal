@@ -47,6 +47,8 @@ pub struct Signal {
 pub enum SignalType {
     /// Regular periodic update
     PeriodicUpdate,
+    /// First kill of the game
+    FirstBlood,
     /// Significant kill event (teamfight)
     KillSpree,
     /// Tower destroyed
@@ -67,6 +69,7 @@ impl SignalType {
     pub fn as_str(&self) -> &'static str {
         match self {
             SignalType::PeriodicUpdate => "periodic_update",
+            SignalType::FirstBlood => "first_blood",
             SignalType::KillSpree => "kill_spree",
             SignalType::TowerKill => "tower_kill",
             SignalType::BarracksKill => "barracks_kill",
