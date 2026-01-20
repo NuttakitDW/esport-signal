@@ -7,9 +7,9 @@ use sqlx::{
 };
 use tracing::info;
 
-use crate::models::{Signal, SignalStrength, SignalType};
+use crate::models::Signal;
 
-/// SQLite store for logging signals
+/// SQLite store for match snapshots
 pub struct SignalStore {
     pool: Pool<Sqlite>,
 }
@@ -53,13 +53,7 @@ impl SignalStore {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 market_condition_id TEXT NOT NULL,
                 match_id INTEGER NOT NULL,
-                signal_type TEXT NOT NULL,
-                team_a_win_prob REAL NOT NULL,
                 market_team_a_odds REAL NOT NULL,
-                edge REAL NOT NULL,
-                confidence REAL NOT NULL,
-                strength TEXT NOT NULL,
-                reason TEXT NOT NULL,
                 match_snapshot TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
@@ -107,27 +101,15 @@ impl SignalStore {
             INSERT INTO signals (
                 market_condition_id,
                 match_id,
-                signal_type,
-                team_a_win_prob,
                 market_team_a_odds,
-                edge,
-                confidence,
-                strength,
-                reason,
                 match_snapshot,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?)
             "#,
         )
         .bind(&signal.market_condition_id)
         .bind(signal.match_id)
-        .bind(signal.signal_type.as_str())
-        .bind(signal.team_a_win_prob)
         .bind(signal.market_team_a_odds)
-        .bind(signal.edge)
-        .bind(signal.confidence)
-        .bind(signal.strength.as_str())
-        .bind(&signal.reason)
         .bind(&signal.match_snapshot)
         .bind(signal.created_at.to_rfc3339())
         .execute(&self.pool)
@@ -196,13 +178,7 @@ struct SignalRow {
     id: i64,
     market_condition_id: String,
     match_id: i64,
-    signal_type: String,
-    team_a_win_prob: f64,
     market_team_a_odds: f64,
-    edge: f64,
-    confidence: f64,
-    strength: String,
-    reason: String,
     match_snapshot: String,
     created_at: String,
 }
@@ -213,42 +189,11 @@ impl From<SignalRow> for Signal {
             id: Some(row.id),
             market_condition_id: row.market_condition_id,
             match_id: row.match_id,
-            signal_type: parse_signal_type(&row.signal_type),
-            team_a_win_prob: row.team_a_win_prob,
             market_team_a_odds: row.market_team_a_odds,
-            edge: row.edge,
-            confidence: row.confidence,
-            strength: parse_signal_strength(&row.strength),
-            reason: row.reason,
             match_snapshot: row.match_snapshot,
             created_at: chrono::DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&chrono::Utc))
                 .unwrap_or_else(|_| chrono::Utc::now()),
         }
-    }
-}
-
-fn parse_signal_type(s: &str) -> SignalType {
-    match s {
-        "periodic_update" => SignalType::PeriodicUpdate,
-        "first_blood" => SignalType::FirstBlood,
-        "kill_spree" => SignalType::KillSpree,
-        "tower_kill" => SignalType::TowerKill,
-        "barracks_kill" => SignalType::BarracksKill,
-        "roshan_kill" => SignalType::RoshanKill,
-        "gold_swing" => SignalType::GoldSwing,
-        "game_start" => SignalType::GameStart,
-        "late_game" => SignalType::LateGame,
-        _ => SignalType::PeriodicUpdate,
-    }
-}
-
-fn parse_signal_strength(s: &str) -> SignalStrength {
-    match s {
-        "weak" => SignalStrength::Weak,
-        "moderate" => SignalStrength::Moderate,
-        "strong" => SignalStrength::Strong,
-        "very_strong" => SignalStrength::VeryStrong,
-        _ => SignalStrength::Weak,
     }
 }

@@ -5,11 +5,9 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info, warn};
 
 use crate::db::SignalStore;
-use crate::models::{
-    ActiveMarkets, LiveMatchState, MatchUpdate, Signal, SignalStrength, SignalType,
-};
+use crate::models::{ActiveMarkets, MatchUpdate, Signal};
 
-/// Worker that processes match updates and generates signals
+/// Worker that processes match updates and stores snapshots
 pub struct SignalProcessorWorker {
     active_markets: Arc<RwLock<ActiveMarkets>>,
     signal_store: Arc<SignalStore>,
@@ -41,7 +39,7 @@ impl SignalProcessorWorker {
         warn!("Signal processor channel closed");
     }
 
-    /// Process a match update and generate signals
+    /// Process a match update and store snapshot
     async fn process_update(&self, update: MatchUpdate) {
         let markets = self.active_markets.read().await;
 
@@ -56,239 +54,36 @@ impl SignalProcessorWorker {
             }
         };
 
-        // Detect signal type based on state changes
-        let signal_type = self.detect_signal_type(&update.state, update.previous_state.as_ref());
-
-        // Calculate win probability (simplified model)
-        let team_a_win_prob = self.calculate_win_probability(&update.state);
-
-        // Get current market odds
-        let market_team_a_odds = market.team_a_odds;
-
-        // Calculate edge
-        let edge = team_a_win_prob - market_team_a_odds;
-
-        // Calculate confidence based on game state
-        let confidence = self.calculate_confidence(&update.state);
-
-        // Determine signal strength
-        let strength = SignalStrength::from_edge(edge);
-
-        // Generate reason
-        let reason = self.generate_reason(&update.state, &signal_type, edge);
-
-        // Create signal
+        // Create signal (match snapshot)
         let signal = Signal {
             id: None,
             market_condition_id: update.market_condition_id.clone(),
             match_id: update.state.match_id,
-            signal_type,
-            team_a_win_prob,
-            market_team_a_odds,
-            edge,
-            confidence,
-            strength,
-            reason: reason.clone(),
+            market_team_a_odds: market.team_a_odds,
             match_snapshot: serde_json::to_string(&update.state).unwrap_or_default(),
             created_at: Utc::now(),
         };
 
-        // Log signal
+        // Log
         info!(
-            "Signal: {} | Match {} | {} vs {} | Win Prob: {:.1}% | Market: {:.1}% | Edge: {:.1}% | {}",
-            signal.signal_type.as_str(),
+            "Snapshot | Match {} | {} vs {} | Score: {}-{} | Gold: {}k | Market: {:.1}%",
             signal.match_id,
             update.state.radiant.name,
             update.state.dire.name,
-            team_a_win_prob * 100.0,
-            market_team_a_odds * 100.0,
-            edge * 100.0,
-            signal.strength.as_str()
+            update.state.radiant.kills,
+            update.state.dire.kills,
+            update.state.gold_lead / 1000,
+            market.team_a_odds * 100.0,
         );
 
         // Store in database
         match self.signal_store.insert_signal(&signal).await {
             Ok(id) => {
-                info!("Signal stored with id: {}", id);
+                info!("Stored snapshot id: {}", id);
             }
             Err(e) => {
-                error!("Failed to store signal: {}", e);
+                error!("Failed to store snapshot: {}", e);
             }
-        }
-    }
-
-    /// Detect the type of signal based on state changes
-    fn detect_signal_type(
-        &self,
-        current: &LiveMatchState,
-        previous: Option<&LiveMatchState>,
-    ) -> SignalType {
-        let previous = match previous {
-            Some(p) => p,
-            None => return SignalType::GameStart,
-        };
-
-        // Check for barracks kill (highest priority)
-        let rax_diff = (current.radiant.barracks_killed - previous.radiant.barracks_killed)
-            + (current.dire.barracks_killed - previous.dire.barracks_killed);
-        if rax_diff > 0 {
-            return SignalType::BarracksKill;
-        }
-
-        // Check for tower kill
-        let tower_diff = (current.radiant.towers_killed - previous.radiant.towers_killed)
-            + (current.dire.towers_killed - previous.dire.towers_killed);
-        if tower_diff > 0 {
-            return SignalType::TowerKill;
-        }
-
-        // Check for first blood (total kills goes from 0 to 1+)
-        let previous_total_kills = previous.radiant.kills + previous.dire.kills;
-        let current_total_kills = current.radiant.kills + current.dire.kills;
-        if previous_total_kills == 0 && current_total_kills > 0 {
-            return SignalType::FirstBlood;
-        }
-
-        // Check for kill spree (5+ kills in the update)
-        let kill_diff = (current.radiant.kills - previous.radiant.kills)
-            + (current.dire.kills - previous.dire.kills);
-        if kill_diff >= 5 {
-            return SignalType::KillSpree;
-        }
-
-        // Check for large gold swing (5k+ change in gold lead)
-        let gold_swing = (current.gold_lead - previous.gold_lead).abs();
-        if gold_swing >= 5000 {
-            return SignalType::GoldSwing;
-        }
-
-        // Check for late game (>35 min)
-        if current.game_time > 2100 && previous.game_time <= 2100 {
-            return SignalType::LateGame;
-        }
-
-        SignalType::PeriodicUpdate
-    }
-
-    /// Calculate win probability based on current state
-    /// This is a simplified model - real implementation would be more sophisticated
-    fn calculate_win_probability(&self, state: &LiveMatchState) -> f64 {
-        let mut radiant_score = 0.5; // Start at 50%
-
-        // Factor 1: Kill advantage (0.5% per kill)
-        let kill_diff = state.radiant.kills - state.dire.kills;
-        radiant_score += kill_diff as f64 * 0.005;
-
-        // Factor 2: Gold advantage (1% per 1000 gold)
-        radiant_score += (state.gold_lead as f64 / 1000.0) * 0.01;
-
-        // Factor 3: Tower advantage (3% per tower)
-        let tower_diff = state.radiant.towers_killed - state.dire.towers_killed;
-        radiant_score += tower_diff as f64 * 0.03;
-
-        // Factor 4: Barracks advantage (8% per barracks)
-        let rax_diff = state.radiant.barracks_killed - state.dire.barracks_killed;
-        radiant_score += rax_diff as f64 * 0.08;
-
-        // Factor 5: Late game amplification
-        let game_progress = (state.game_time as f64 / 2400.0).min(1.0); // 40 min = full progress
-        let deviation_from_50 = radiant_score - 0.5;
-        radiant_score = 0.5 + deviation_from_50 * (1.0 + game_progress * 0.5);
-
-        // Clamp to valid probability range
-        radiant_score.clamp(0.05, 0.95)
-    }
-
-    /// Calculate confidence in the signal
-    fn calculate_confidence(&self, state: &LiveMatchState) -> f64 {
-        let mut confidence = 0.5;
-
-        // Higher confidence in later game (more data)
-        let game_progress = (state.game_time as f64 / 2400.0).min(1.0);
-        confidence += game_progress * 0.3;
-
-        // Higher confidence with larger leads
-        let kill_diff = (state.radiant.kills - state.dire.kills).abs();
-        let gold_diff = state.gold_lead.abs();
-
-        if kill_diff >= 10 || gold_diff >= 10000 {
-            confidence += 0.15;
-        }
-
-        confidence.clamp(0.3, 0.95)
-    }
-
-    /// Generate human-readable reason for the signal
-    fn generate_reason(
-        &self,
-        state: &LiveMatchState,
-        signal_type: &SignalType,
-        edge: f64,
-    ) -> String {
-        let direction = if edge > 0.0 {
-            format!("{} favored", state.radiant.name)
-        } else {
-            format!("{} favored", state.dire.name)
-        };
-
-        let edge_pct = (edge.abs() * 100.0).round();
-
-        match signal_type {
-            SignalType::GameStart => format!("Game started: {} at {}%", direction, edge_pct),
-            SignalType::FirstBlood => {
-                let fb_team = if state.radiant.kills > state.dire.kills {
-                    &state.radiant.name
-                } else {
-                    &state.dire.name
-                };
-                format!("First blood: {} - {} at {}%", fb_team, direction, edge_pct)
-            }
-            SignalType::KillSpree => format!(
-                "Kill spree detected: {} ({}:{}) - {} at {}%",
-                state.radiant.name,
-                state.radiant.kills,
-                state.dire.kills,
-                direction,
-                edge_pct
-            ),
-            SignalType::TowerKill => format!(
-                "Tower destroyed: {} at {}%",
-                direction, edge_pct
-            ),
-            SignalType::BarracksKill => format!(
-                "Barracks destroyed: {} at {}%",
-                direction, edge_pct
-            ),
-            SignalType::RoshanKill => format!(
-                "Roshan killed: {} at {}%",
-                direction, edge_pct
-            ),
-            SignalType::GoldSwing => {
-                format!(
-                    "Gold swing: {} lead by {}k - {} at {}%",
-                    if state.gold_lead > 0 {
-                        &state.radiant.name
-                    } else {
-                        &state.dire.name
-                    },
-                    (state.gold_lead.abs() as f64 / 1000.0).round(),
-                    direction,
-                    edge_pct
-                )
-            }
-            SignalType::LateGame => format!(
-                "Late game ({}min): {} at {}%",
-                state.game_time / 60,
-                direction,
-                edge_pct
-            ),
-            SignalType::PeriodicUpdate => format!(
-                "Update at {}:{:02}: {} at {}%",
-                state.game_time / 60,
-                state.game_time % 60,
-                direction,
-                edge_pct
-            ),
         }
     }
 }
